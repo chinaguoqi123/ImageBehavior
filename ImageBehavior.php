@@ -1,6 +1,6 @@
 <?php
 /** 
- * OrderableBehavior 
+ * ImageBehavior 
  * 
  * @developer Andrew Lechowicz
  * @license MIT 
@@ -10,39 +10,53 @@
  */
 class ImageBehavior extends ModelBehavior {
 
-		public $name = 'Image';
+	public $name = 'Image';
         
         public $mapMethods = array('/saveAs(\w+)/' => 'saveAsFileType');
         
         public $imageResource = false;
      
-		function setup(&$Model, $settings = array()) { 
-			if (!isset($settings)) { 
-				$settings = array(
-					'path' => IMAGES,
-					'field' => false,
-				); 
-			} 
-			$this->settings = array_merge($this->_defaults, $settings);
-		}
-		
-		public function saveAsFileType(Model $model, $type, $name, $subpath = false) {
-		
-		}
-		
-		
-		
-		
-		////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-        // Define virtual fields at runtime
-            public function __construct($id=false,$table=null,$ds=null){
-                parent::__construct($id,$table,$ds);
-                $this->virtualFields = array(
-                    'path' => "CONCAT('db/', {$this->alias}.uuid, '.', {$this->alias}.ext)"
-                    );
-                $categories = $this->ImageCategory->find('list', array('fields' => array('ImageCategory.id')));
-                $this->order = array('FIELD('.$this->alias.'.image_category_id, '.String::toList($categories, ', ').')');
+        /*
+         * @todo Save to databsse as opposed to file system.
+         */
+        public function setup(Model $Model, $settings = array()) {
+            if (!isset($this->settings[$Model->alias])) {
+                $this->settings[$Model->alias] = array(
+                        'full_path' => IMAGES,// Set to false to use db for storage
+                        'name_field' => 'uuid',
+                        'extention_field' => 'ext',
+                        'width' => 'width',
+                        'height' => 'height',
+                        'field' => false,
+                );
             }
+            $this->settings[$Model->alias] = array_merge(
+                $this->settings[$Model->alias], (array)$settings);
+            
+            if($this->settings['virtualField']) {
+                $Model->virtualFields = array(
+                'path' => "CONCAT('db/', {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})"
+                );
+            }
+        }
+
+        public function saveAsFileType(Model &$Model, $type, $name, $subpath = false) {
+
+        }
+		
+	
+        public function afterFind(Model &$Model, mixed $results, boolean $primary) {
+            if($primary) {
+                $this->_loadImage(&$Model, $results[$Model->alias][$this->settings[$Model->alias][]]);
+            }
+        }
+        
+        public function afterSave(Model $Model, boolean $created) {
+            
+        }
+		
+		
+	///////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
         public function save($data = null, $validate = true, $fieldList = array()) {
             if($this->imageResource === false) {
@@ -106,13 +120,7 @@ class ImageBehavior extends ModelBehavior {
         }
         
 
-        public function read($fields = null, $id = null) {
-            if(parent::read($fields, $id)) {
-                $this->loadImage(APP.'webroot'.DS.'img'.DS.$this->data['Image']['path']);
-                return parent::read($fields, $id);
-            }
-            return false;
-        }
+        
         
         public function readDataOnly($fields = null, $id = null) {
                 return parent::read($fields, $id);
@@ -132,7 +140,7 @@ class ImageBehavior extends ModelBehavior {
             return parent::delete();
         }
 
-        public function loadImage($fileString) {
+        private function _loadImage(Model $Model, $fileString) {
                 if(!file_exists($fileString)) {
                     throw new NotFoundException('File: "'.$fileString.'" not found');
                     return false;  
@@ -142,23 +150,23 @@ class ImageBehavior extends ModelBehavior {
                 // create useing the correct function
                 switch($this->ext) {
                     case 'jpg':
-                        $this->imageResource = imagecreatefromjpeg($fileString);
+                        $Model->imageResource = imagecreatefromjpeg($fileString);
                         break;
                     case 'jpeg':
-                        $this->imageResource = imagecreatefromjpeg($fileString);
+                        $Model->imageResource = imagecreatefromjpeg($fileString);
                         break;
                     case 'png':
-                        $this->imageResource = imagecreatefrompng($fileString);
+                        $Model->imageResource = imagecreatefrompng($fileString);
                         break;
                     case 'gif';
-                        $this->imageResource = imagecreatefromgif($fileString);
+                        $Model->imageResource = imagecreatefromgif($fileString);
                         break;
                     default:
                         throw new NotFoundException('File "'.$fileString.'" not found');
                         return false; // just in case
                         break; // just in case
                 }
-                imagealphablending($this->imageResource, true);
+                imagealphablending($Model->imageResource, true);
                 return true;
         }
         
@@ -261,6 +269,13 @@ class ImageBehavior extends ModelBehavior {
 	}
         
         public function resizeCrop($newWidth, $newHeight) {
+            $this->resizeAndCrop($newWidth, $newHeight)
+        }
+        
+        /*
+         * Resizes the current resource to fit the dimentions
+         */
+        public function resizeAndCrop($newWidth, $newHeight) {
             
             /*
             * Crop-to-fit PHP-GD
@@ -271,10 +286,6 @@ class ImageBehavior extends ModelBehavior {
             */
             $origWidth = $this->getWidth();
             $origHeight = $this->getHeight();
-
-            /*
-            * Add file validation code here
-            */
 
             $origRatio = $origWidth / $origHeight;
             $desired_aspect_ratio = $newWidth / $newHeight;
@@ -312,17 +323,23 @@ class ImageBehavior extends ModelBehavior {
             return true;
 	}
         
-        public function crop($startX, $startY, $newWidth, $newHeight) {
+        /*
+         * Crops the current resource to fit within the 
+         */
+        public function crop($newWidth, $newHeight) {
             $image_p = imagecreatetruecolor($newWidth, $newHeight);
             $transparent = imagecolorallocatealpha($image_p, 255, 255, 255, 127);
             imagealphablending($image_p, false);
             imagesavealpha($image_p,true);
             imagefilledrectangle($image_p, 0, 0, $newWidth, $newHeight, $transparent);
-            imagecopyresampled($image_p, $this->imageResource, 0, 0, $startX, $startY, $newWidth, $newHeight, $newWidth, $newHeight);
+            imagecopyresampled($image_p, $this->imageResource, 0, 0, 0, 0, $newWidth, $newHeight, $newWidth, $newHeight);
             $this->imageResource = $image_p;
             return true;
 	}
 	
+        /*
+         * Resizes the current image resource base on a percent
+         */
 	public function resizePercent($percent) {
             
             (float)$percent = $percent/100;
@@ -367,7 +384,7 @@ class ImageBehavior extends ModelBehavior {
             return true;
 	}
 	
-	public function writeToDisk($location = null, $quality = 100) {
+	private function _writeToDisk($location = null, $quality = 100) {
             if(!isset($this->ext) || empty($this->ext)) $this->ext = 'jpg';
             if($location == null) $location = APP.'webroot'.DS.'img'.DS.'db'.DS.$this->uuid.'.'.$this->ext;
             
@@ -385,7 +402,7 @@ class ImageBehavior extends ModelBehavior {
                         imagegif($this->imageResource, $location, $quality);
                         break;
                     default:
-                        throw new NotFoundException('File "'.$fileString.'" not found');
+                        //throw new NotFoundException('File "'.$fileString.'" not found');
                         return false; // just in case
                         break; // just in case
             }
@@ -393,10 +410,10 @@ class ImageBehavior extends ModelBehavior {
             return TRUE;
 	}
 	
-	private function turnAlphaBlendingOFF() { imagealphablending($im, false); }
+	private function _turnAlphaBlendingOFF() { imagealphablending($im, false); }
 	
         
-        private function getImageResourceSize() {
+        private function _getImageResourceSize() {
             $dim = array();
             $dim[] = $this->getWidth($this->imageResource);
             $dim[] = $this->getHeight($this->imageResource);
@@ -410,150 +427,4 @@ class ImageBehavior extends ModelBehavior {
 	public function getHeight() {
 		return imagesy($this->imageResource);
 	}
-        
-/**
- * Validation rules
- *
- * @var array
- */
-	public $validate = array(
-		'original_image_id' => array(
-			'numeric' => array(
-				'rule' => array('numeric'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'uuid' => array(
-			'uuid' => array(
-				'rule' => array('uuid'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'ext' => array(
-			'notempty' => array(
-				'rule' => array('notempty'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'class' => array(
-			'notempty' => array(
-				'rule' => array('notempty'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'foreign_id' => array(
-			'numeric' => array(
-				'rule' => array('numeric'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'title' => array(
-			'notempty' => array(
-				'rule' => array('notempty'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'image_category_id' => array(
-			'numeric' => array(
-				'rule' => array('numeric'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'image_type_id' => array(
-			'numeric' => array(
-				'rule' => array('numeric'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'width' => array(
-			'numeric' => array(
-				'rule' => array('numeric'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-		'height' => array(
-			'numeric' => array(
-				'rule' => array('numeric'),
-				//'message' => 'Your custom message here',
-				//'allowEmpty' => false,
-				//'required' => false,
-				//'last' => false, // Stop validation after this rule
-				//'on' => 'create', // Limit validation to 'create' or 'update' operations
-			),
-		),
-	);
-
-	//The Associations below have been created with all possible keys, those that are not needed can be removed
-
-/**
- * hasOne associations
- *
- * @var array
- */
-        
-	public $hasOne = array(
-		'OriginalImage' => array(
-			'className' => 'Image',
-			'foreignKey' => 'id',
-                        'conditions' => array('OriginalImage.parent_id' => 'OriginalImage.id', 'OriginalImage.id' => NULL),
-		),
-                'PrimaryImage' => array(
-			'className' => 'Image',
-			'foreignKey' => 'id',
-                        'conditions' => array('PrimaryImage.primary' => 1),
-		)
-	);
-        
-
-/**
- * belongsTo associations
- *
- * @var array
- */
-	public $belongsTo = array(
-		'ImageCategory' => array(
-			'className' => 'ImageCategory',
-			'foreignKey' => 'image_category_id'
-		),
-		'ImageType' => array(
-			'className' => 'ImageType',
-			'foreignKey' => 'image_type_id'
-		)
-	);
 }
