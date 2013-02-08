@@ -50,6 +50,13 @@ class ImageBehavior extends ModelBehavior {
             }
         }
         
+        public function beforeSave($options = array()) {
+            if($this->imageResource === false) $this->_loadImage(&$Model, $results[$Model->alias][$this->settings[$Model->alias][]]);
+            $this->data[$this->settings['width']] = $this->getWidth();
+            $this->data[$this->settings['height']] = $this->getHeight();
+            return true;
+        }
+        
         public function afterSave(Model $Model, boolean $created) {
             
         }
