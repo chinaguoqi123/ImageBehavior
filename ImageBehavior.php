@@ -5,7 +5,7 @@
  * @developer Andrew Lechowicz
  * @license MIT 
  * @version 0.1 
- * @modified  3 January 2012
+ * @modified  8 Febuary 2013
  * 
  */
 class ImageBehavior extends ModelBehavior {
