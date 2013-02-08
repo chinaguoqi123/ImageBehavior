@@ -22,22 +22,22 @@ class ImageBehavior extends ModelBehavior {
         public function setup(Model $Model, $settings = array()) {
             if (!isset($this->settings[$Model->alias])) {
                 $this->settings[$Model->alias] = array(
-                        'full' => IMAGES,// Set to false to use db for storage
+                        'path' => '',  //Path from webroot. If it begins with a slah HTML helper assumes absoloute. otherwise it serves from the 'img' directory in webroot  
+                        'full_path' => IMAGES,// TODO Set to false to use db for storage
                         'uuid' => 'uuid',
                         'extention' => 'ext',
                         'width' => 'width',
                         'height' => 'height',
-                        'binary' => false,
+                        'binary' => false, 
                 );
             }
             $this->settings[$Model->alias] = array_merge(
                 $this->settings[$Model->alias], (array)$settings);
             
                 $Model->virtualFields = array(
-                //'path' => "CONCAT('db/', {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})",
-                'full_path' => "CONCAT({$Model->alias}.{$this->settings[$Model->alias]['full_path']}, {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})"
+                'path' => "CONCAT('{$this->settings[$Model->alias]['path']}', {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})",
+                'full_path' => "CONCAT({$this->settings[$Model->alias]['full_path']}, {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})"
                 );
-           
         }
 
         public function saveAsFileType(Model &$Model, $type, $name, $subpath = false) {
