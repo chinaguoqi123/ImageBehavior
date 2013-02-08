@@ -22,22 +22,21 @@ class ImageBehavior extends ModelBehavior {
         public function setup(Model $Model, $settings = array()) {
             if (!isset($this->settings[$Model->alias])) {
                 $this->settings[$Model->alias] = array(
-                        'full_path' => IMAGES,// Set to false to use db for storage
-                        'name_field' => 'uuid',
-                        'extention_field' => 'ext',
+                        'full' => IMAGES,// Set to false to use db for storage
+                        'name' => 'uuid',
+                        'extention' => 'ext',
                         'width' => 'width',
                         'height' => 'height',
-                        'field' => false,
+                        'binary' => false,
                 );
             }
             $this->settings[$Model->alias] = array_merge(
                 $this->settings[$Model->alias], (array)$settings);
             
-            if($this->settings['virtualField']) {
                 $Model->virtualFields = array(
                 'path' => "CONCAT('db/', {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})"
                 );
-            }
+           
         }
 
         public function saveAsFileType(Model &$Model, $type, $name, $subpath = false) {
