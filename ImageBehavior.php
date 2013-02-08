@@ -34,7 +34,8 @@ class ImageBehavior extends ModelBehavior {
                 $this->settings[$Model->alias], (array)$settings);
             
                 $Model->virtualFields = array(
-                'path' => "CONCAT('db/', {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})"
+                //'path' => "CONCAT('db/', {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})",
+                'full_path' => "CONCAT({$Model->alias}.{$this->settings[$Model->alias]['full_path']}, {$Model->alias}.{$this->settings[$Model->alias]['name_field']}, '.', {$Model->alias}.{$this->settings[$Model->alias]['extention_field']})"
                 );
            
         }
