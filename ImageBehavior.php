@@ -413,10 +413,7 @@ class ImageBehavior extends ModelBehavior {
 	
         
         private function _getImageResourceSize() {
-            $dim = array();
-            $dim[] = $this->getWidth($this->imageResource);
-            $dim[] = $this->getHeight($this->imageResource);
-            return $dim;
+            return array($this->getWidth($this->imageResource), $this->getHeight($this->imageResource));
         }
         
         public function getWidth() {
