@@ -23,7 +23,7 @@ class ImageBehavior extends ModelBehavior {
             if (!isset($this->settings[$Model->alias])) {
                 $this->settings[$Model->alias] = array(
                         'full' => IMAGES,// Set to false to use db for storage
-                        'name' => 'uuid',
+                        'uuid' => 'uuid',
                         'extention' => 'ext',
                         'width' => 'width',
                         'height' => 'height',
@@ -53,6 +53,7 @@ class ImageBehavior extends ModelBehavior {
         
         public function beforeSave($options = array()) {
             if($this->imageResource === false) $this->_loadImage(&$Model, $results[$Model->alias][$this->settings[$Model->alias][]]);
+            if(!isset($this->data['id']) || empty($this->data['id'])) $this->data[$this->settings['uuid']] = String::uuid();
             $this->data[$this->settings['width']] = $this->getWidth();
             $this->data[$this->settings['height']] = $this->getHeight();
             return true;
